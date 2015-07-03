@@ -1,5 +1,5 @@
 # broadbandstatus
-Broadband Device Status and Reporting Toot
+Broadband Device Status and Reporting Tool
 
 NOTE: This is in pre-alpha state at this time.    Very little is implemented at this time.   If you've found this and make it work for you, that's fantastic but also completely unexpected.
 
