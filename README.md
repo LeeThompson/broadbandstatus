@@ -14,7 +14,7 @@ Features:
 
 Requirements:
 * Data Gathering: Perl 5 (and appropriate modules) (optional: MariaDB/MySQL or compatible)
-* Data Reporting: Web Server, PHP 5, MariaDB/MySQL or comaptible database
+* Data Reporting: Web Server, PHP 5, MariaDB/MySQL or compatible database
 
 
 Perl Modules:
