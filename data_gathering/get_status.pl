@@ -6,26 +6,31 @@
 #
 #=============================================================================
 # to do:
-#	configuration
-#		load config (file, sql?)
-#		command line options
-#		validate config
-#		range checking
-#		config section for broadband device driver?
-#		load and configure broadband device driver
-#		get info from driver for diagnostics/logging
-#
-#	data 
-#		validate data
-#		normalize data
-#		format data
-#
-#	output/alert/test libraries
+#	load config
+#	validate config
+#	range checking
+#	config section for broadband device driver?
+#	load and configure broadband device driver
+#	get info from driver for diagnostics/logging
+#	get data (DONE)
+#	validate data
+#	better data handling
+#		data in structure?
+#	flesh out/hook up command line options
+#	do ping tests? separate libraries?
+#	report data to chosen destinations (separate libraries? but want to do any combination)
+#	alerts? smtp? growl? (separate libraries? but want to do any combination)
 #	error handling
 #	testing
 #	documentation
 #	implement resource library for strings (eventual)
+#	config?
+#		tests
+#		alerts
+#		output
 #=============================================================================
+
+package BBStatus;
 
 use strict;
 use warnings;
@@ -42,15 +47,15 @@ use constant{
 	PROGRAM_SHORT_NAME => "get_status",
 	PROGRAM_NAME => "Information Gathering",
 	PROGRAM_ICON => "",
-	PROGRAM_VERSION => "201507022044",
+	PROGRAM_VERSION => "201607201308",
 	CONFIG_SECTION_MAIN => "configuration",
 	CONFIG_SECTION_DATABASE => "database",
 	OUTPUT_TYPE_CON => 0,
 	OUTPUT_TYPE_SQL => 1,
 	OUTPUT_TYPE_CSV => 2,
-	DEBUG_INFO_DUMP_FILE => "dump_info.txt",
-	DEBUG_STATUS_DUMP_FILE => "dump_status.txt",
-	DEBUG_NETWORK_DUMP_FILE => "dump_network.txt",
+	DEBUG_INFO_DUMP_FILE => "dump_info",
+	DEBUG_STATUS_DUMP_FILE => "dump_status",
+	DEBUG_NETWORK_DUMP_FILE => "dump_network",
 	DEBUG_OPT_DUMP_DATA => 1,
 	DEBUG_OPT_DUMP_USE_DRIVER_PREFIX => 1,
 	DEFAULT_VERBOSE => 1,
@@ -65,7 +70,8 @@ use constant{
 	DEFAULT_LOG_FILE => "get_status.log",
 	DEFAULT_LOG_TO_FILE => 0,
 	DEFAULT_APPEND_LOG_FILE => 0,
-	DEFAULT_LOGLEVEL => 1,
+	DEFAULT_LOGLEVEL => 5,
+	DEFAULT_ARRAY_SEPARATOR => "|",
 	DEFAULT_STRING_SEPARATOR => ",",
 	DEFAULT_QUOTE_SYMBOL => "'",
 	DEFAULT_CONSOLE_OUTPUT => 1,
@@ -75,6 +81,7 @@ use constant{
 	DEFAULT_DUMP_EXTENSION => "txt",
 	DEFAULT_DRIVER_EXTENSION => "pl",
 	DEFAULT_DRIVER_PREFIX => "drv_",
+	DEFAULT_TRIM_WHITESPACE => 0,
 	ALWAYS => 0,
 	VERBOSE => 1,
 	DEBUG => 2,
@@ -87,24 +94,35 @@ use constant{
 	ENCODING_CRLF => "crlf",
 	ENCODING_UTF16 => "encoding(UTF-16)",
 	LOG_SEPARATOR => "***",
+
+	NO_DATA => "!!!",
+	NO_FIELD => "!!!",
+	NO_ERROR => "",
 	RESPONSE_ERROR => 0,
 	RESPONSE_OK => 1,
-	NO_RECORD => "*",
-	NO_FIELD => "*",
-	NO_ERROR => "OK",
-	NO_DATA => "******",
+
 	ERROR_DRIVER_NOT_FOUND => "Driver not found",
 	ERROR_FILE_NOT_FOUND => "File not found",
 	ERROR_MISSING_MODEL => "No model given.",
-	ERROR_UNSUPPORTED => "Device is not supported",
 	ERROR_OFFLINE => "Could not contact device.",
 	ERROR_INVALID => "Device returned invalid or no data.",
 	ERROR_UNKNOWN_STATUS => "Unknown status code.",
+	ERROR_UNSUPPORTED => "Not supported",
 	ERROR_UNKNOWN => "UNKNOWN",
 	OPERATING_MODE_BRIDGE => "Bridging",
 	OPERATING_MODE_GATEWAY => "Gateway",
-	FUNCTION_NOT_SUPPORTED => "Function not supported",
+
+	LIBRARY_DATA_FIELDS => "lib_datafields.pl",
+	LIBRARY_FILE_ALERTS => "lib_alerts.pl",
+#	LIBRARY_FILE_OUTPUT => "lib_output.pl",
+	LIBRARY_FILE_OUTPUT => "lib_output_sql.pl",
+	LIBRARY_FILE_TESTS => "lib_tests.pl",
 };
+
+# Global
+
+our ($global_trimwhitespace);
+$global_trimwhitespace = DEFAULT_TRIM_WHITESPACE;
 
 # Variables, Arrays and Structures
 
@@ -162,6 +180,13 @@ my $start_run_time;
 my $finish_run_time;
 my $elapsed_run_time;
 
+my %device_data;
+#
+#	device_data{deviceid}{item}
+#	
+#	should be a NOT_AVAILABLE constant instead of
+#	leaving it undef to keep warnings from being annoying
+#	
 my @device_info_buffer = ();
 my @device_status_buffer = ();
 my @device_network_buffer = ();
@@ -286,6 +311,30 @@ writelog("Configuration Read",DEBUG);
 #	Show Configuration Flags
 
 
+# Libraries
+
+if (require(LIBRARY_FILE_ALERTS)) {
+	writelog("Library: Alerts - LOADED",DEBUG);
+	writelog("Alerts Library v" . alertsGetVersion(),DEBUG);
+} else {
+	writelog("Library: Alerts - FAILED",ERROR);
+}
+
+if (require(LIBRARY_FILE_OUTPUT)) {
+	writelog("Library: Output - LOADED",DEBUG);
+	writelog("Output Library v" . outputGetVersion(),DEBUG);
+} else {
+	writelog("Library: Output - FAILED",ERROR);
+}
+
+if (require(LIBRARY_FILE_TESTS)) {
+	writelog("Library: Tests - LOADED",DEBUG);
+	writelog("Tests Library v" . testsGetVersion(),DEBUG);
+} else {
+	writelog("Library: Tests - FAILED",ERROR);
+}
+
+
 #	LOAD AND INITIALIZE DRIVER
 
 #  to do	TEMPORARY DEBUG CRAP
@@ -297,7 +346,7 @@ $device_model = "SMCD3G-CCR";
 
 if ($retcode) {
 	writelog("Driver for $device_model loaded",DEBUG);
-	writelog("Driver: " . driverGetVersion(),DEBUG);
+	writelog("Driver v" . driverGetVersion(),DEBUG);
 	$flag_do_processing = 1;
 } else {
 	writelog("Could not load driver for $device_model",DEBUG);
@@ -313,6 +362,22 @@ if ($flag_do_processing) {
 	($retcode,$error_message) = driverGetDeviceData($device_model);
 	writelog("retcode: $retcode for driverGetDeviceData",DEBUG);
 
+# to do
+#	besides driver version, there should be one call into driver that populates a
+#	reference away containing validated and normalized data
+#
+#	this array also works on defines so:
+#
+# $array{DEVICE_CONNECTION_STATUS} would have the connection status
+# $array{DEVICE_DOWNSTREAM_CHANNEL_COUNT} would tell us how many downstream channels there ar
+#	each channel woudl be instanced, so:
+# $array{DEVICE_DOWNSTREAM_FREQUENCY}{3} would give the frequency for the third downstream channel
+#
+# it will be up to get_status to pass along the proper format to output and/or alerts
+
+
+
+
 	if ($retcode) {
 		# to do 
 		#	do actual stuff with data instead of dumping to a file
@@ -320,7 +385,7 @@ if ($flag_do_processing) {
 		$retcode = driverGetDeviceDataStatus(\@device_status_buffer);
 		writelog("retcode: $retcode for driverGetDeviceDataStatus",DEBUG);
 		if ($opt_dump_data) {
-			$dump_pathname = $opt_dump_file_status;
+			$dump_pathname = $opt_dump_file_status . "." . $dump_ext;
 			if ($opt_dump_use_driver_prefix) {
 				$dump_pathname = $device_model . "_" . $dump_pathname;
 			}
@@ -332,7 +397,7 @@ if ($flag_do_processing) {
 		$retcode = driverGetDeviceDataInfo(\@device_info_buffer);
 		writelog("retcode: $retcode for driverGetDeviceDataInfo",DEBUG);
 		if ($opt_dump_data) {
-			$dump_pathname = $opt_dump_file_info;
+			$dump_pathname = $opt_dump_file_info . "." . $dump_ext;
 			if ($opt_dump_use_driver_prefix) {
 				$dump_pathname = $device_model . "_" . $dump_pathname;
 			}
@@ -344,7 +409,7 @@ if ($flag_do_processing) {
 		$retcode = driverGetDeviceDataNetwork(\@device_network_buffer);
 		writelog("retcode: $retcode for driverGetDeviceDataNetwork",DEBUG);
 		if ($opt_dump_data) {
-			$dump_pathname = $opt_dump_file_network;
+			$dump_pathname = $opt_dump_file_network . "." . $dump_ext;
 			if ($opt_dump_use_driver_prefix) {
 				$dump_pathname = $device_model . "_" . $dump_pathname;
 			}
@@ -352,6 +417,9 @@ if ($flag_do_processing) {
 			writelog("Dumping Network Buffer to $dump_pathname",DEBUG);
 			dumpToFile(\@device_network_buffer,$dump_pathname);
 		}
+
+		# Report Status
+		$retcode = outputReportInfo(\@device_info_buffer);
 		
 	} else {
 		writelog("Failed to get Device Data: $error_message",ERROR);
@@ -520,6 +588,23 @@ sub initializeLog{
 }
 
 #--------------------------------------------------
+# Remove Substring
+#--------------------------------------------------
+sub removeSubstring {
+	my $content = shift;
+	my $match_string = shift;
+
+	return $content unless defined $content;
+	return $content unless defined $match_string;
+
+	$match_string = quotemeta($match_string);
+
+	$content =~ s/$match_string//g;
+
+	return $content;
+}
+
+#--------------------------------------------------
 # Trim String
 #--------------------------------------------------
 sub trimString {
@@ -543,12 +628,10 @@ sub parseQuotes{
 	my $ret_value = "";
 
 	$temp = "" unless defined $temp;
-	$flag_trim = 0 unless defined $flag_trim;
-
-	$flag_trim = int $flag_trim;
+	$flag_trim = $global_trimwhitespace unless defined $flag_trim;
+	$flag_trim = forceNumeric($flag_trim);
 
 	{
-
 		$temp =~  /(.*)\"(.+)\"(.*)/;
 
 		$ret_string = $temp;
@@ -557,16 +640,16 @@ sub parseQuotes{
 		if (($1) || ($2)) {
 			if ($3) {
 				if ($flag_trim) {
-					$ret_string = trimString($1) . trimString($3);
-					$ret_value = trimString($2);
+					$ret_string = trimWhiteSpace($1) . trimString($3);
+					$ret_value = trimWhiteSpace($2);
 				} else {
 					$ret_string = $1 . $3;
 					$ret_value = $2;
 				}
 			} else { 
 				if ($flag_trim) {
-					$ret_string = trimString($1);
-					$ret_value = trimString($2);
+					$ret_string = trimWhiteSpace($1);
+					$ret_value = trimWhiteSpace($2);
 				} else { 
 					$ret_string = $1;
 					$ret_value = $2;
@@ -963,6 +1046,39 @@ sub quoteString{
 }
 
 #-----------------------------------------------------------
+# Reformat Data
+#-----------------------------------------------------------
+sub reformatData{
+	my $content = shift;
+	my $original_separator = shift;
+	my $array_separator = shift;
+	my $buffer;
+	my @original_array = ();
+	my @temp_array = ();
+
+	return NO_DATA unless defined $content;
+	return $content unless defined $original_separator;
+
+	if ($content eq NO_DATA) {
+		return NO_DATA;
+	}
+
+	$array_separator = DEFAULT_ARRAY_SEPARATOR unless defined $array_separator;
+
+	@original_array = split(quotemeta($original_separator),$content);
+	
+	foreach my $line (@original_array) {
+		if ($global_trimwhitespace) { 
+			$line = trimWhiteSpace($line); 
+		}
+		push(@temp_array,$line);	
+	}
+
+	$buffer = join("$array_separator",@temp_array) . $array_separator;
+	return $buffer;
+}
+
+#-----------------------------------------------------------
 # Get Values from HTML
 #-----------------------------------------------------------
 sub getValuesFromHTML{
@@ -1011,8 +1127,6 @@ sub getQuotedValuesFromHTML{
 	my $retval;
 	my $buffer;
 	my $line;
-	
-	$string_separator = DEFAULT_STRING_SEPARATOR unless defined $string_separator;
 
 	if ($search_string eq NO_FIELD) { return NO_DATA; } 
 
@@ -1020,6 +1134,9 @@ sub getQuotedValuesFromHTML{
 		$line = $_;
 		if ($line =~ /$search_string/i ) {	
 			($buffer,$retval) = parseQuotes($line);
+			if ($global_trimwhitespace) { 
+				$retval = trimWhiteSpace($retval); 
+			}
 		}
 	}
 
@@ -1065,6 +1182,9 @@ sub getValuesFromHTMLTable{
 						$value = $row;
 						$value = NO_DATA unless defined $value;
 						if ($value ne NO_DATA) {
+							if ($global_trimwhitespace) { 
+								$value = trimWhiteSpace($value); 
+							}
 							$retval = addString($retval,$value,$string_separator);
 						}
 					}
@@ -1136,6 +1256,17 @@ sub rawToFile{
 	return $retval;
 }
 
+#-----------------------------------------------------------
+# Remove WhiteSpace From String
+#-----------------------------------------------------------
+sub trimWhiteSpace{
+	my $string = shift;
+	return $string unless defined $string;
+
+	$string =~ s/^\s*(.*?)\s*$/$1/;
+
+	return $string;
+}
 
 #-----------------------------------------------------------
 # Read From File (untested)
