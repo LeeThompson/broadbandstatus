@@ -1,0 +1,370 @@
+/* Broadband Status */
+/* Common Elements */
+
+body {
+ color: black;
+ background-color: white;
+ font-family: "Segoe UI", "Tahoma", Helvetica, sans-serif;
+ font-size: 18px;
+}
+
+div.connecterror {
+ color: red;
+ display: inline;
+}
+
+div.connectprogress {
+ color: #D0D060;
+ display: inline;
+}
+
+div.connectok {
+ color: green;
+ display: inline;
+}
+
+div.outofspec {
+ color: red;
+ display: inline;
+}
+
+div.marginal {
+ color: orange;
+ display: inline;
+}
+
+div.acceptable {
+ color: #A0A020;
+ display: inline;
+}
+
+div.recommended {
+ color: green;
+ display: inline;
+}
+
+.controls {
+ background-color: #600000;
+ text-align: center;
+ color: white;
+ font-size: 14px;
+ padding-left: 4px;
+ padding-right: 4px;
+ text-transform: uppercase;
+ font-weight: bold;
+ border: 1px solid black;
+}
+
+.legend {
+ float: left;
+}
+
+.controls a, .controls a:link, .controls a:visited {
+ background-color: #700000;
+ color: #D0D0D0;
+}
+
+.controls a:active {
+ background-color: #FF0000;
+ color: white;
+}
+
+.controls a:focus, .controls a:visited:focus, .controls a:hover, .controls a:visited:hover {
+ background-color: red;
+ color: white;
+}
+
+
+.debug {
+ color: black;
+ background-color: #F0F040;
+ font-family: "Terminal", "Fixedsys", "Courier New", Courier, monospace;
+ padding: 16px;
+}
+
+
+h1 {
+ color: black;
+ text-align: center;
+ letter-spacing: 0.4em;
+ font-size: 36px;
+ text-transform: uppercase;
+}
+
+h2 {
+ background-color: #400000;
+ color: white;
+ text-align: left;
+ font-size: 18px;
+ text-transform: uppercase;
+ text-indent: 1em;
+}
+
+h3 {
+ background-color: #400000;
+ color: white;
+ letter-spacing: 0.1em;
+ text-align: left;
+ font-size: 18px;
+ text-transform: uppercase;
+ text-indent: 1em;
+}
+
+h4 {
+ text-align: left;
+ font-size: 18px;
+ text-transform: uppercase;
+ text-indent: 1em;
+}
+
+h5 {
+ text-align: left;
+ font-size: 16px;
+ text-transform: uppercase;
+ text-indent: 1em;
+}
+
+h6 {
+ background-color: #FFFFA0;
+ text-align: center;
+ font-size: 14px;
+ text-transform: uppercase;
+ letter-spacing: 0.1em;
+ margin-top: -1.5em;
+ margin-left: 2em;
+}
+
+a:link {
+ margin-top: -1em;
+ color: black;
+ text-decoration: none;
+ margin-bottom: 1em;
+}
+
+a:active {
+ margin-top: -1em;
+ background-color: #D0D0D0;
+ color: black;
+ text-decoration: none;
+ margin-bottom: 1em;
+}
+
+a:hover {
+ margin-top: -1em;
+ background-color: #E0E0E0;
+ color: black;
+ text-decoration: none;
+ margin-bottom: 1em;
+}
+
+a:visited {
+ margin-top: -1em;
+ color: black;
+ text-decoration: none;
+ margin-bottom: 1em;
+}
+
+blockquote {
+ margin-top: -1em;
+}
+
+small {
+  background-color: white;
+  color: #303030;
+  font-size: 12px;
+  float: right;
+  text-align: right;
+  font-weight: bold;
+}
+
+.footer {
+  margin-top: 50px;
+  background-color: white;
+  color: #303030;
+  font-size: 8px;
+  text-align: left;
+}
+
+
+/* Tables */
+
+
+table {
+ border: none;
+ empty-cells: show;
+ table-layout: fixed;
+ white-space: nowrap;
+ margin: auto;
+}
+
+table td {
+ border: none;
+ text-align: left;
+ border-bottom: double; 
+ color: black;
+ padding-right: 10px;
+}
+
+table td.eventtime {
+ border: none;
+ text-align: left;
+ border-bottom: double; 
+ color: black;
+}
+
+table td.circuit {
+ border: none;
+ text-align: left;
+ border-bottom: double; 
+ color: black;
+}
+
+table td.frequency {
+ border: none;
+ text-align: left;
+ border-bottom: double; 
+ color: black;
+}
+
+table td.modulation {
+ border: none;
+ text-align: left;
+ border-bottom: double; 
+ color: black;
+}
+
+table td.rate {
+ border: none;
+ text-align: left;
+ border-bottom: double; 
+ color: black;
+ overflow: hidden;
+ text-overflow: ellipsis;
+}
+
+table td.power {
+ border: none;
+ text-align: left;
+ border-bottom: double; 
+ color: black;
+}
+
+table td.snr {
+ border: none;
+ text-align: left;
+ border-bottom: double; 
+ color: black;
+}
+
+table td.status {
+ border: none;
+ text-align: left;
+ border-bottom: double; 
+ color: black;
+}
+
+
+table th {
+ background-color: #400000;
+ color: white;
+ text-transform: uppercase;
+ text-align: left;
+ border: none;
+ font-weight: bold;
+}
+
+table td.headings {
+ background-color: #400000;
+ color: white;
+ text-transform: uppercase;
+ text-align: left;
+ border: none;
+ font-weight: bold;
+ padding-left: 2px;
+ font-family: "Arial Narrow", Helvetica, sans-serif;
+}
+
+table td.longtext {
+ text-align: left;
+ border-bottom: double; 
+ color: black;
+ padding-right: 14px;
+ text-overflow: ellipsis;
+ overflow: hidden;
+}
+
+tr {
+ text-align: left;
+ color: black;
+}
+
+/* SUBTABLE */
+
+table subtable {
+ border: none;
+ background-color: #40FFFF;
+ empty-cells: show;
+ table-layout: fixed;
+ white-space: nowrap;
+ width: 100%;
+ margin: left;
+}
+
+table td.subtable {
+ border: none;
+ text-align: left;
+ vertical-align: top;
+}
+
+table td.subtable subdata {
+ border: none;
+ text-align: left;
+ vertical-align: top;
+}
+
+}
+/* GENERAL */
+
+table general {
+ border: none;
+ background-color: #40FFFF;
+ empty-cells: show;
+ table-layout: fixed;
+ white-space: nowrap;
+ width: 100%;
+ margin: left;
+}
+
+table td.general {
+ border: none;
+ text-align: left;
+ vertical-align: top;
+}
+
+table td.periodlabel {
+ border: none;
+ text-align: left;
+ vertical-align: top;
+}
+
+table td.periodtext {
+ border: none;
+ text-align: left;
+ vertical-align: top;
+}
+
+table td.indica {
+ border: none;
+ text-align: left;
+ vertical-align: top;
+ font-size: 10px;
+}
+
+table tr.general {
+ border: none;
+ text-align: left;
+ font-size: 16px;
+ text-transform: uppercase;
+}
+
+
