@@ -8,12 +8,12 @@
 #=============================================================================
 #	TO DO:
 #		data normalization
-#			remove included units of measure?
-#		logging driver should be TRACE not DEBUG
+#			obtain/parse data
+#				use temporary storag
+#				lookup etc data
+#				flag not available items
+#			        data available in standardized %struct
 #		true initialization function
-#		parse all the data
-#			partial
-#		build structures to send back to data gathering program
 #		create methods for set/get variables
 #		error handling
 #		testing
@@ -45,10 +45,19 @@ use WWW::Mechanize 1.73;
 
 
 use constant{
-	DRIVER_FAMILY => "comcast_business_01",
+	DRIVER_FAMILY => "comcast_business_01",			# not sure how useful this is?
 	DRIVER_DEVICES => "SMCD3G-CCR",				# Use bar | to separate
-	DRIVER_VERSION => "201507022044",
-	
+	DRIVER_VERSION => "201607201308",
+#
+# 	Driver Debug Options
+#
+	DRIVER_OPT_DEBUG_DUMP_HTTP => 1,
+	DRIVER_OPT_DUMP_PATH => "debug",
+	DRIVER_OPT_DUMP_FILE_INFO => "info",
+	DRIVER_OPT_DUMP_FILE_STATUS => "status",
+	DRIVER_OPT_DUMP_FILE_NETWORK => "network",
+	DRIVER_OPT_DUMP_EXTENSION => "txt",
+	DRIVER_OPT_DUMP_HTTP_SUFFIX => "_raw",
 #
 #	HTTP Options
 #
@@ -65,12 +74,6 @@ use constant{
 #	Driver Defaults
 #
 	DEFAULT_USER_AGENT => "Windows Mozilla",
-	DEFAULT_DUMP_PATH => ".",
-	DEFAULT_DUMP_FILE_INFO => "info.txt",
-	DEFAULT_DUMP_FILE_STATUS => "status.txt",
-	DEFAULT_DUMP_FILE_NETWORK => "network.txt",
-	DEFAULT_DUMP_HTTP => 1,
-	DEFAULT_DUMP_DATA => 1,
 	DEFAULT_CONTENT_HASH => 0,
 	DEFAULT_RETRY_COUNT => 5,
 	DEFAULT_RETRY_DELAY => 10,
@@ -86,20 +89,26 @@ use constant{
 	DRIVER_DEVICE_MANUFACTURER => "SMC Networks",			#	Device Maker
 	DRIVER_DEVICE_MODEL => "SMCD3G-CCR",				#	Device Model
 	DRIVER_DEVICE_PROTOCOL => "http",				#	Protocol to Access
-	DRIVER_DEVICE_URL_LOGIN => "/",					#	Login URL
+	DRIVER_DEVICE_URL_LOGIN => 0,					#	Login URL
 	DRIVER_DEVICE_URL_STATUS => "user/feat-gateway-status.asp",	# 	Status Page URL
 	DRIVER_DEVICE_URL_INFO =>  "user/feat-gateway-modem.asp",	#	Info Page URL
 	DRIVER_DEVICE_URL_NETWORK =>  "user/feat-gateway-network.asp",	#	Network Page URL
 	DRIVER_DEVICE_URL_LOGOUT => "gocusform/logout",			#	Logout Page URL
+	DRIVER_DEVICE_FIELD_LOGIN_FORM_NUMBER => 1,			#	Form Number for Login
+	DRIVER_DEVICE_FIELD_LOGIN_USERNAME => "user",			#	Form Field Name
+	DRIVER_DEVICE_FIELD_LOGIN_PASSWORD => "pws",			#	Form Field Password
 	DRIVER_DEVICE_ADDRESS => "10.1.10.1",				#	LAN IP Address
 	DRIVER_DEVICE_USERNAME => "cusadmin",				#	Username
 	DRIVER_DEVICE_PASSWORD => "highspeed",				#	Password
 	DRIVER_DEVICE_IS_OEM => 1,					#	Is an OEM Model?
 	DRIVER_DEVICE_REQUIRE_LOGIN => 1,				#	Is login required?
 	DRIVER_DEVICE_REQUIRE_LOGOUT => 0,				#	Is logout required?
+	DRIVER_DATA_SEPARATOR => "|",
 #
 #	Units of Measure
 #
+	DRIVER_MEASURE_MODULATION => "QAM",
+
 	DRIVER_MEASURE_DOWNSTREAM_FREQUENCY => "MHz",
 	DRIVER_MEASURE_DOWNSTREAM_POWER => "dBmV",
 	DRIVER_MEASURE_DOWNSTREAM_SYMBOL_RATE => "Msym/sec",
@@ -130,7 +139,7 @@ use constant{
 	DRIVER_INFO_UPSTREAM_CHANNEL => "var CmUpstreamChannelIdBase",
 
 	DRIVER_INFO_WAN_STATUS => "var cable_status",					# same as DRIVER_NETWORK_WAN_STATUS
-	DRIVER_INFO_LOD_SUCCESS => "var TodSuccess",					# Time of Day Status (0 not set, 1 set)
+	DRIVER_INFO_TOD_SUCCESS => "var TodSuccess",					# Time of Day Status (0 not set, 1 set)
 	
 	DRIVER_WAN_TYPE_STATIC => "Fixed",
 	DRIVER_WAN_TYPE_DHCP => "Dynamic",
@@ -172,6 +181,40 @@ use constant{
 	DRIVER_STATUS_SERIAL_NUMBER => "Serial Number",
 	DRIVER_STATUS_FIRMWARE_VERSION => "Firmware Version",
 	DRIVER_STATUS_UPTIME => "System Uptime",
+#
+#	Strings
+#
+	STRING_DUMPING_RAW => "Dumping raw data to",
+	STRING_DATA_DUMP_SUCCESS => "Data Dump Write Successful",
+	STRING_DATA_DUMP_FAILED => "Data Dump Write Failed",
+	STRING_LOGIN_SUCCESS => "Login Success",
+	STRING_BROWSE_SUCCESS => "Browse Success",
+	STRING_REQUESTING_URL => "Requesting URL",
+	STRING_CURRENT_URL => "Current URI",
+	STRING_INITIAL_PAGE_IS_LOGIN => "Initial Page is Login",
+	STRING_SUBMITTING_LOGIN_FORM => "Submitting Login Form",
+	STRING_TITLE => "Title",
+	STRING_MIME => "MIME",
+	STRING_EXTRACTING_DATA => "Extracting Data",
+	STRING_REQUESTING_LOGIN_PAGE => "Requesting Login Page",
+	STRING_ATTEMPTING_TO_GET_LOGIN_PAGE => "Attempting to Get Login Page",
+	STRING_ATTEMPTING_TO_GET_STATUS_PAGE => "Attempting to Get Status Page",
+	STRING_ATTEMPTING_TO_GET_INFO_PAGE => "Attempting to Get Info Page",
+	STRING_ATTEMPTING_TO_GET_NETWORK_PAGE => "Attempting to Get Network Page",
+	STRING_ATTEMPTING_TO_LOGOUT => "Attemping to Logout",
+	STRING_ERROR_PREFIX => "ERROR: ",
+	STRING_ERROR_LOGGING_OUT => "Error Logging Out",
+	STRING_ERROR_ABORTED => "Aborted",
+	STRING_ERROR_UNKNOWN => "Unknown Error",
+	STRING_ERROR_BROWSE_FAILED => "Browse Failed",
+	STRING_ERROR_NO_START_PAGE => "Failed to get Initial Page",
+	STRING_ERROR_NO_LOGIN_PAGE => "Failed to get LOGIN page",
+	STRING_ERROR_NO_PAGE => "Failed to get page",
+	STRING_ERROR_NO_LOGOUT_PAGE => "Logout Required But No Page Defined",
+	STRING_ERROR_LOGIN_FAILED => "Login Failed",
+	STRING_WARNING_LOGOUT_NOT_REQUIRED => "Logout Not Required",
+
+	DRIVER_TRIMWHITESPACE => 1,
 	
 };
 
@@ -203,19 +246,27 @@ my $device_status_page = DRIVER_DEVICE_URL_STATUS;
 my $device_network_page = DRIVER_DEVICE_URL_NETWORK;
 my $device_info_page = DRIVER_DEVICE_URL_INFO;
 my $device_logout_page = DRIVER_DEVICE_URL_LOGOUT;
+my $device_data_separator = DRIVER_DATA_SEPARATOR;
+
+my $device_field_login_form_number = DRIVER_DEVICE_FIELD_LOGIN_FORM_NUMBER;
+my $device_field_login_form_username = DRIVER_DEVICE_FIELD_LOGIN_USERNAME;
+my $device_field_login_form_password = DRIVER_DEVICE_FIELD_LOGIN_PASSWORD;
+
+
 
 # Paths
 
-my $dump_path = DEFAULT_DUMP_PATH;
-my $dump_file_info = DEFAULT_DUMP_FILE_INFO;
-my $dump_file_status = DEFAULT_DUMP_FILE_STATUS;
-my $dump_file_network = DEFAULT_DUMP_FILE_NETWORK;
+my $dump_path = DRIVER_OPT_DUMP_PATH;
+my $dump_file_info = DRIVER_OPT_DUMP_FILE_INFO;
+my $dump_file_status = DRIVER_OPT_DUMP_FILE_STATUS;
+my $dump_file_network = DRIVER_OPT_DUMP_FILE_NETWORK;
+my $dump_file_extension = DRIVER_OPT_DUMP_EXTENSION;
+my $dump_file_http_suffix = DRIVER_OPT_DUMP_HTTP_SUFFIX;
 
 # Options
 
 my $opt_hash_content = parseBoolean(DEFAULT_CONTENT_HASH);
-my $opt_driver_dump_http = DEFAULT_DUMP_HTTP;
-my $opt_driver_dump_data = DEFAULT_DUMP_DATA;
+my $opt_driver_dump_http = DRIVER_OPT_DEBUG_DUMP_HTTP;
 my $opt_driver_logout = DRIVER_OPTION_REQUIRE_LOGOUT;
 my $opt_driver_login = DRIVER_DEVICE_REQUIRE_LOGIN;
 
@@ -241,6 +292,8 @@ my @driver_network = ();
 if (DRIVER_DEVICE_REQUIRE_LOGOUT > 0) {
 	$opt_driver_logout = DRIVER_DEVICE_REQUIRE_LOGOUT;
 }
+
+$BBStatus::global_trimwhitespace = DRIVER_TRIMWHITESPACE;
 
 1;
 
@@ -351,482 +404,33 @@ sub driverGetConnectionStatus{
 #-----------------------------------------------------------
 # Public Functions
 #-----------------------------------------------------------
+#	Main Call
+#-----------------------------------------------------------
+
 sub driverGetDeviceData{
-	# pass in data?
 	my $retcode = RESPONSE_ERROR;
 	my $error = ERROR_INVALID;
-	my $url = "";
-	my $http_title;
-	my $http_mime;
-	my $http_content;
-	my $http_status;
-	my $http_message;
-	my $current_uri;
-	my $login_form_fields;
-	my $buffer;
-	my $result;
-	my $flag_continue = 0;
-	my $pathname;
-
-	my $browser = WWW::Mechanize->new(
-		autocheck => $http_auto_check,
-		agent => $http_user_agent,
-		noproxy => $http_no_proxy,
-		quiet => $http_quiet,
-		stack_depth => $http_stack_depth,
-	);
-
-	$url = "$device_protocol://$device_address";
-
-	writelog("Requesting URL: $url",DEBUG);
-	
-	# this function will vary by driver, some devices may have more pages, others less
-
-	# some kind of availability check here
-
-	# ability to do content type decoding if needed
-
-	# should follow redirects if needed
 
 	# to do
-	# login should only occur if opt_driver_login is true
+	#	reference to array
 
-	$flag_continue = 1;
+	# to do
+	#	initialize array
+	#	mark anything not applicable to the driver as NOT_APPLICABLE
 
-	if ($flag_continue) {
+	# to do
+	#	do initial tests if requested (ping, tcp, etc)
 
-		# Get Login Page
+	#	use device interface to get data
+	($retcode,$error) = privateDriverQuestionDevice();
 
-		$browser->get($url);
+	#	normalize data and populate array
+	#	return REPONSE_OK if the array populated correctly, otherwise RESPONSE_ERROR and why
 
-		if ($browser->success) {
-
-			# Submit Form
-
-			$flag_continue = 1;
-
-			$http_title = $browser->title();
-			$http_mime = $browser->content_type();
-			$http_content = $browser->content;
-			$http_status = $browser->status();
-			$http_message = $browser->response()->status_line;
-			$current_uri = $browser->uri();
-
-			$http_title = NO_DATA unless defined $http_title;
-
-			writelog("Browse Success",DEBUG);
-
-			writelog("Current URI: $current_uri",DEBUG);
-			writelog("Title: $http_title",DEBUG);
-			writelog("Mime: $http_mime",DEBUG);
 	
-			writelog("Submitting Login Form",DEBUG);
-
-			# to do: form field number and field names should be soft
-
-			$result = $browser->submit_form(
-					form_number => 1,
-                              		fields => {
-						user => $device_username,
-						pws => $device_password
-					} 
-			);
-      
-			if ($result->is_success) {
-				$flag_continue = 1;
-
-				$http_title = $browser->title();
-				$http_mime = $browser->content_type();
-				$http_content = $browser->content;
-				$http_status = $browser->status();
-				$http_message = $browser->response()->status_line;
-				$current_uri = $browser->uri();
-
-				$http_title = NO_DATA unless defined $http_title;
-		
-				writelog("Login Success",DEBUG);
-				writelog("Current URI: $current_uri",DEBUG);
-				writelog("Title: $http_title",DEBUG);
-				writelog("Mime: $http_mime",DEBUG);
-
-				#	STATUS
-
-				if ($flag_continue) {
-					# Get Page for Data
-
-					$url = "$device_protocol://$device_address/$device_status_page";
-
-					writelog("Attemping to Get Status Page",DEBUG);
-
-					$browser->get($url);
-
-					if ($browser->success) {
-
-						# Get Data
-						# STATUS
-
-						$http_title = $browser->title();
-						$http_mime = $browser->content_type();
-						$http_content = $browser->content;
-						$http_status = $browser->status();
-						$http_message = $browser->response()->status_line;
-						$current_uri = $browser->uri();
-
-						$http_title = NO_DATA unless defined $http_title;
-
-						writelog("Browse Success",DEBUG);
-
-						writelog("Current URI: $current_uri",DEBUG);
-						writelog("Title: $http_title",DEBUG);
-						writelog("Mime: $http_mime",DEBUG);
-
-						if ($opt_driver_dump_data) {
-							$pathname = "$dump_path/$dump_file_status";
-
-							if (rawToFile($http_content,$pathname)) {
-									writelog("Status Data Dump Written Successfully",DEBUG);
-								} else {
-									writelog("Status Data Dump Write Failed",DEBUG);
-							}
-						}
-
-						$flag_continue = 1;
-
-						if ($flag_continue) {
-								writelog("Extracting Data: STATUS",DEBUG);
-
-								$buffer = getValuesFromHTML(DRIVER_STATUS_SYSTEMTIME,$http_content);
-								(my $junk,$buffer) = parseQuotes($buffer);
-								push(@driver_status,"DRIVER_STATUS_SYSTEMTIME=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_STATUS_RGSTATUS,$http_content);
-								push(@driver_status,"DRIVER_STATUS_RGSTATUS=$buffer");
-
-								$buffer = getValuesFromHTMLTable(DRIVER_STATUS_OPERATING_MODE,$http_content);
-								if ($buffer eq NO_DATA) {
-									$buffer = privateDriverGetComcastOperatingMode(forceNumeric(getQuotedValuesFromHTML(DRIVER_STATUS_RGSTATUS,$http_content)));
-								}
-								push(@driver_status,"DRIVER_STATUS_OPERATING_MODE=$buffer");
-
-								$buffer = getValuesFromHTMLTable(DRIVER_STATUS_VENDOR,$http_content);
-								push(@driver_status,"DRIVER_STATUS_VENDOR=$buffer");
-
-								$buffer = getValuesFromHTMLTable(DRIVER_STATUS_HARDWARE_VERSION,$http_content);
-								push(@driver_status,"DRIVER_STATUS_HARDWARE_VERSION=$buffer");
-
-								$buffer = getValuesFromHTMLTable(DRIVER_STATUS_SERIAL_NUMBER,$http_content);
-								push(@driver_status,"DRIVER_STATUS_SERIAL_NUMBER=$buffer");
-
-								$buffer = getValuesFromHTMLTable(DRIVER_STATUS_UPTIME,$http_content);
-								push(@driver_status,"DRIVER_STATUS_UPTIME=$buffer");
-						}
-
-						$retcode = RESPONSE_OK;
-						$error = NO_ERROR;
-
-					} else {
-						$flag_continue = 0;
-						writelog("Aborted",DEBUG);
-					}
-				} else {
-					$flag_continue = 0;
-					writelog("Aborted",DEBUG);
-				}
-
-				#	DEVICE INFO
-
-				if ($flag_continue) {
-					# Get Page for Info
-
-					$url = "$device_protocol://$device_address/$device_info_page";
-
-					writelog("Attemping to Get Info Page",DEBUG);
-
-					$browser->get($url);
-
-					if ($browser->success) {
-
-						# Get Data
-						# INFO
-
-						$http_title = $browser->title();
-						$http_mime = $browser->content_type();
-						$http_content = $browser->content;
-						$http_status = $browser->status();
-						$http_message = $browser->response()->status_line;
-						$current_uri = $browser->uri();
-
-						$http_title = NO_DATA unless defined $http_title;
-
-						writelog("Browse Success",DEBUG);
-
-						writelog("Current URI: $current_uri",DEBUG);
-						writelog("Title: $http_title",DEBUG);
-						writelog("Mime: $http_mime",DEBUG);
-
-						if ($opt_driver_dump_data) {
-							$pathname = "$dump_path/$dump_file_info";
-
-							if (rawToFile($http_content,$pathname)) {
-									writelog("Info Data Dump Written Successfully",DEBUG);
-								} else {
-									writelog("Info Data Dump Write Failed",DEBUG);
-							}
-						}
-
-						$flag_continue = 1;
-
-						if ($flag_continue) {
-								writelog("Extracting Data: INFO",DEBUG);
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_FREQUENCY,$http_content);
-								push(@driver_info,"DRIVER_INFO_DOWNSTREAM_FREQUENCY=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_MODULATION,$http_content);
-								push(@driver_info,"DRIVER_INFO_DOWNSTREAM_MODULATION=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_POWER,$http_content);
-								push(@driver_info,"DRIVER_INFO_DOWNSTREAM_POWER=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_LOCK,$http_content);
-								push(@driver_info,"DRIVER_INFO_DOWNSTREAM_LOCK=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_RATE,$http_content);
-								push(@driver_info,"DRIVER_INFO_DOWNSTREAM_RATE=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_SNR,$http_content);
-								push(@driver_info,"DRIVER_INFO_DOWNSTREAM_SNR=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_CHANNEL,$http_content);
-								push(@driver_info,"DRIVER_INFO_DOWNSTREAM_CHANNEL=$buffer");
-
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_FREQUENCY,$http_content);
-								push(@driver_info,"DRIVER_INFO_UPSTREAM_FREQUENCY=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_MODULATION,$http_content);
-								push(@driver_info,"DRIVER_INFO_UPSTREAM_MODULATION=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_POWER,$http_content);
-								push(@driver_info,"DRIVER_INFO_UPSTREAM_POWER=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_LOCK,$http_content);
-								push(@driver_info,"DRIVER_INFO_UPSTREAM_LOCK=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_RATE,$http_content);
-								push(@driver_info,"DRIVER_INFO_UPSTREAM_RATE=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_SNR,$http_content);
-								push(@driver_info,"DRIVER_INFO_UPSTREAM_SNR=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_CHANNEL,$http_content);
-								push(@driver_info,"DRIVER_INFO_UPSTREAM_CHANNEL=$buffer");
-
-								$buffer = getValuesFromHTML(DRIVER_INFO_WAN_STATUS,$http_content);
-								$connection_status = forceNumeric($buffer);
-								push(@driver_info,"DRIVER_INFO_WAN_STATUS=$buffer");
-
-								$buffer = getValuesFromHTML(DRIVER_INFO_LOD_SUCCESS,$http_content);
-								$buffer = forceNumeric($buffer);
-								push(@driver_info,"DRIVER_INFO_LOD_SUCCESS=$buffer");
-
-						}
-
-						$retcode = RESPONSE_OK;
-						$error = NO_ERROR;
-
-					} else {
-						$flag_continue = 0;
-						writelog("Aborted",DEBUG);
-					}
-				}
-
-				#	NETWORK STATUS
-
-				if ($flag_continue) {
-					# Get Page for Network Status
-
-					$url = "$device_protocol://$device_address/$device_network_page";
-
-					writelog("Attemping to Get Network Page",DEBUG);
-
-					$browser->get($url);
-
-					if ($browser->success) {
-
-						# Get Data
-						# NETWORK
-
-						$http_title = $browser->title();
-						$http_mime = $browser->content_type();
-						$http_content = $browser->content;
-						$http_status = $browser->status();
-						$http_message = $browser->response()->status_line;
-						$current_uri = $browser->uri();
-
-						$http_title = NO_DATA unless defined $http_title;
-
-						writelog("Browse Success",DEBUG);
-
-						writelog("Current URI: $current_uri",DEBUG);
-						writelog("Title: $http_title",DEBUG);
-						writelog("Mime: $http_mime",DEBUG);
-
-						if ($opt_driver_dump_data) {
-							$pathname = "$dump_path/$dump_file_network";
-
-							if (rawToFile($http_content,$pathname)) {
-									writelog("Network Data Dump Written Successfully",DEBUG);
-								} else {
-									writelog("Network Data Dump  Write Failed",DEBUG);
-							}
-						}
-
-						$flag_continue = 1;
-
-						if ($flag_continue) {
-								writelog("Extracting Data: NETWORK",DEBUG);
-
-# getValuesFromHTML
-# getValuesFromHTMLTable
-# getQuotedValuesFromHTML
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PUBLIC_LAN_V4,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_PUBLIC_LAN_V4=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PUBLIC_WAN_V4,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_PUBLIC_WAN_V4=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PRIVATE_LAN_V4,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_PRIVATE_LAN_V4=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PRIVATE_MAC,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_PRIVATE_MAC=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_DHCP_SERVER_CONFIG_V4,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_DHCP_SERVER_CONFIG_V4=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PUBLIC_WAN_DHCP_V4,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_PUBLIC_WAN_DHCP_V4=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PUBLIC_WAN_DHCP_SUBNET_V4,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_PUBLIC_WAN_DHCP_SUBNET_V4=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PUBLIC_WAN_DHCP_GATEWAY_V4,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_PUBLIC_WAN_DHCP_GATEWAY_V4=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_INTERNET_INFO_V4,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_INTERNET_INFO_V4=$buffer");
-
-								$buffer = getValuesFromHTML(DRIVER_NETWORK_WAN_STATUS,$http_content);
-								$connection_status = int($buffer);
-								push(@driver_network,"DRIVER_NETWORK_WAN_STATUS=$buffer");
-
-								$buffer = getValuesFromHTMLTable(DRIVER_NETWORK_PUBLIC_WAN_DHCP_LEASE,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_PUBLIC_WAN_DHCP_LEASE=$buffer");
-
-								$buffer = getValuesFromHTMLTable(DRIVER_NETWORK_STATIC_IP_BLOCK,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_STATIC_IP_BLOCK=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PUBLIC_WAN_V6,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_PUBLIC_WAN_V6=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_DHCP_SERVER_CONFIG_V6,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_DHCP_SERVER_CONFIG_V6=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_DHCP_DNS_PRIMARY_V6,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_DHCP_DNS_PRIMARY_V6=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_DHCP_DNS_SECONDARY_V6,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_DHCP_DNS_SECONDARY_V6=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PRIVATE_LAN_V6,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_PRIVATE_LAN_V6=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_DNS_PRIMARY_V6,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_DNS_PRIMARY_V6=$buffer");
-
-								$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_DNS_SECONDARY_V6,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_DNS_SECONDARY_V6=$buffer");
-
-								$buffer = getValuesFromHTMLTable(DRIVER_NETWORK_PRIVATE_LAN_GATEWAY_V6,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_PRIVATE_LAN_GATEWAY_V6=$buffer");
-
-								$buffer = getValuesFromHTMLTable(DRIVER_NETWORK_PREFIX_DELEGATIONS_V6,$http_content);
-								push(@driver_network,"DRIVER_NETWORK_PREFIX_DELEGATIONS_V6=$buffer");
-						}
-
-						$retcode = RESPONSE_OK;
-						$error = NO_ERROR;
-					} else {
-						$flag_continue = 0;
-						writelog("Aborted",DEBUG);
-					}
-				}
-
-				#	Set Flag (to do : should be smarter)
-
-
-				if ($flag_continue) {
-					$flag_data_gathered = 1;
-					$data_timestamp = time;
-				}
-
-				#	LOGOUT
-
-				if ($flag_continue) {
-					if ($opt_driver_logout) {
-						# Logout if Requested
-
-						$url = "$device_protocol://$device_address/$device_logout_page";
-	
-						writelog("Attemping to Logout",DEBUG);
-	
-						$browser->get($url);
-
-					if ($browser->success) {
-						# Logout
-
-						$http_title = $browser->title();
-						$http_mime = $browser->content_type();
-						$http_content = $browser->content;
-						$http_status = $browser->status();
-						$http_message = $browser->response()->status_line;
-						$current_uri = $browser->uri();
-
-						$http_title = NO_DATA unless defined $http_title;
-
-						writelog("Browse Success",DEBUG);
-
-						writelog("Current URI: $current_uri",DEBUG);
-						writelog("Title: $http_title",DEBUG);
-						writelog("Mime: $http_mime",DEBUG);
-
-						$flag_continue = 0;
-						$retcode = RESPONSE_OK;
-							$error = NO_ERROR;
-						} else {
-							$flag_continue = 0;
-							writelog("Error Logging Out",DEBUG);
-						}
-					}
-				} else {
-					$flag_continue = 0;
-					writelog("Aborted",DEBUG);
-				}
-			} else {
-				$flag_continue = 0;
-				writelog("Login Failed",DEBUG);
-			}
-		} else {
-			writelog("Failed to get Login Page",DEBUG);
-		}
-	} else {
-		writelog("Aborted",DEBUG);
-	}
 
 	return ($retcode,$error);
-}
-
+}	
 #-----------------------------------------------------------
 # Private Functions
 #-----------------------------------------------------------
@@ -867,6 +471,33 @@ sub privateDriverGetComcastCableStatus{
 }
 
 #-----------------------------------------------------------
+# Comcast Threshold Tests
+#-----------------------------------------------------------
+# Downstream (Rx) Receive Power Level
+# RECOMMENDED: -7 dBmV to +7 dBmV 
+# ACCEPTABLE: -8 dBmV to -10 dBmV, +8 dBmV to +10 dBmV
+# MAXIMUM: -11 dBmV to -15 dBmV, +11 dBmV to +15 dBmV
+# OUT OF SPEC: -15 dBmV and below, +15 dBmV and above
+#
+# SNR
+# 256 QAM: 30 dB minimum. 33 dB or higher recommended. (often used in downstream channels)
+# 64 QAM: 24 dB minimum. 27 dB or higher recommended. (often used in downstream channels)
+# 16 QAM: 18 dB minimum. 21 dB or higher recommended. (often used in upstream channels)
+# QPSK: 12 dB minimum. 15 dB or higher recommended. (often used in upstream channels)
+# 
+# Upstream (tx) Transmit Power Level
+# RECOMMENDED: 35 dBmV - 49 dBmV
+# MAXIMUM: 52 dBmV maximum for A-TDMA & TDMA (DOCSIS 3.0)
+# MAXIMUM: 53 dBmV maximum for S-CDMA DOCSIS 2.0 (All Modulations)
+# MAXIMUM: 54 dBmV maximum for 32 QAM and 64 QAM. (A-TDMA DOCSIS 2.0)
+# MAXIMUM: 55 dBmV maximum for 8 QAM and 16 QAM. (DOCSIS 1.0, 1.1)
+# MAXIMUM: 58 dBmV maximum for QPSK. (DOCSIS 1.0, 1.1)
+#
+# This function will need INFO data to test with
+sub privateDriverTestThresholds{
+}
+
+#-----------------------------------------------------------
 # Comcast Operating Mode
 #-----------------------------------------------------------
 sub privateDriverGetComcastOperatingMode{
@@ -885,5 +516,550 @@ sub privateDriverGetComcastOperatingMode{
 	return $retval;
 }
 
+#-----------------------------------------------------------
+# Get Device Data from Interface
+#-----------------------------------------------------------
+sub privateDriverQuestionDevice{
+	my $retcode = RESPONSE_ERROR;
+	my $error = ERROR_INVALID;
+	my $url = "";
+	my $http_title;
+	my $http_mime;
+	my $http_content;
+	my $http_status;
+	my $http_message;
+	my $current_uri;
+	my $login_form_fields;
+	my $buffer;
+	my $result;
+	my $flag_continue = 0;
+	my $pathname;
 
+	my $browser = WWW::Mechanize->new(
+		autocheck => $http_auto_check,
+		agent => $http_user_agent,
+		noproxy => $http_no_proxy,
+		quiet => $http_quiet,
+		stack_depth => $http_stack_depth,
+	);
+
+	$url = "$device_protocol://$device_address";
+
+	writelog(STRING_REQUESTING_URL . ": $url",TRACE);
+	
+	# ability to do content type decoding if needed
+
+	# should follow redirects if needed
+
+	$flag_continue = 1;
+
+	if ($flag_continue) {
+
+		# Get Initial Page
+
+		$browser->get($url);
+
+		if ($browser->success) {
+
+			$flag_continue = 1;
+
+			$http_title = $browser->title();
+			$http_mime = $browser->content_type();
+			$http_content = $browser->content;
+			$http_status = $browser->status();
+			$http_message = $browser->response()->status_line;
+			$current_uri = $browser->uri();
+
+			$http_title = NO_DATA unless defined $http_title;
+
+			writelog(STRING_BROWSE_SUCCESS,TRACE);
+
+			writelog(STRING_CURRENT_URL . ": $current_uri",TRACE);
+			writelog(STRING_TITLE . ": $http_title",TRACE);
+			writelog(STRING_MIME . ": $http_mime",TRACE);
+
+			if ($opt_driver_login) {
+				if ($device_login_page) {
+					writelog(STRING_REQUESTING_LOGIN_PAGE,TRACE);
+
+					$flag_continue = 1;
+
+					$url = "$device_protocol://$device_address/$device_login_page";
+	
+					writelog(STRING_ATTEMPTING_TO_GET_LOGIN_PAGE,TRACE);
+	
+					$browser->get($url);
+
+					if ($browser->success) {
+						$flag_continue = 1;
+		
+						$http_title = $browser->title();
+						$http_mime = $browser->content_type();
+						$http_content = $browser->content;
+						$http_status = $browser->status();
+						$http_message = $browser->response()->status_line;
+						$current_uri = $browser->uri();
+
+						$http_title = NO_DATA unless defined $http_title;
+
+						writelog(STRING_BROWSE_SUCCESS,TRACE);
+
+						writelog(STRING_CURRENT_URL . ": $current_uri",TRACE);
+						writelog(STRING_TITLE . ": $http_title",TRACE);
+						writelog(STRING_MIME . ": $http_mime",TRACE);
+
+					} else {
+						$flag_continue = 0;
+
+						writelog(STRING_ERROR_PREFIX . STRING_ERROR_NO_LOGIN_PAGE,TRACE);
+					}
+
+				} else {
+					$flag_continue = 1;
+
+					writelog(STRING_INITIAL_PAGE_IS_LOGIN,TRACE);
+				}
+
+				if ($flag_continue) {
+					$flag_continue = 1;
+
+					writelog(STRING_SUBMITTING_LOGIN_FORM,TRACE);
+
+					$result = $browser->submit_form(
+						form_number => $device_field_login_form_number,
+                	              		fields => {
+							$device_field_login_form_username => $device_username,
+							$device_field_login_form_password => $device_password
+						} 
+					);
+
+					if ($result->is_success) {
+						$flag_continue = 1;
+
+						$http_title = $browser->title();
+						$http_mime = $browser->content_type();
+						$http_content = $browser->content;
+						$http_status = $browser->status();
+						$http_message = $browser->response()->status_line;
+						$current_uri = $browser->uri();
+
+						$http_title = NO_DATA unless defined $http_title;
+		
+						writelog(STRING_LOGIN_SUCCESS,TRACE);
+						writelog(STRING_CURRENT_URL . ": $current_uri",TRACE);
+						writelog(STRING_TITLE . ": $http_title",TRACE);
+						writelog(STRING_MIME . ": $http_mime",TRACE);
+					} else {
+						$flag_continue = 0;
+						writelog(STRING_ERROR_PREFIX . STRING_ERROR_LOGIN_FAILED,TRACE);
+					}
+				} else {
+					$flag_continue = 0;
+					writelog(STRING_ERROR_PREFIX . STRING_ERROR_ABORTED,TRACE);
+				}
+			} else {
+				$flag_continue = 1;
+				writelog(STRING_WARNING_LOGOUT_NOT_REQUIRED,TRACE);
+			}
+
+			#	STATUS
+
+			if ($flag_continue) {
+
+				$url = "$device_protocol://$device_address/$device_status_page";
+	
+				writelog(STRING_ATTEMPTING_TO_GET_STATUS_PAGE,TRACE);
+	
+				$browser->get($url);
+	
+				if ($browser->success) {
+	
+					# Get Data
+					# STATUS
+	
+					$http_title = $browser->title();
+					$http_mime = $browser->content_type();
+					$http_content = $browser->content;
+					$http_status = $browser->status();
+					$http_message = $browser->response()->status_line;
+					$current_uri = $browser->uri();
+
+					$http_title = NO_DATA unless defined $http_title;
+	
+					writelog(STRING_BROWSE_SUCCESS,TRACE);
+
+					writelog(STRING_CURRENT_URL . ": $current_uri",TRACE);
+					writelog(STRING_TITLE . ": $http_title",TRACE);
+					writelog(STRING_MIME . ": $http_mime",TRACE);
+
+					if ($opt_driver_dump_http) {
+						$pathname = "$dump_path/$dump_file_status" . $dump_file_http_suffix . "." . $dump_file_extension;
+						
+						writelog("STATUS: " . STRING_DUMPING_RAW . " $pathname",TRACE);
+
+						if (rawToFile($http_content,$pathname)) {
+								writelog(STRING_DATA_DUMP_SUCCESS,TRACE);
+							} else {
+								writelog(STRING_DATA_DUMP_FAILED,TRACE);
+						}
+					}
+	
+					$flag_continue = 1;
+
+					if ($flag_continue) {
+						writelog(STRING_EXTRACTING_DATA . ": STATUS",TRACE);
+	
+						$buffer = getValuesFromHTML(DRIVER_STATUS_SYSTEMTIME,$http_content);
+						(my $junk,$buffer) = parseQuotes($buffer);
+						push(@driver_status,"DRIVER_STATUS_SYSTEMTIME=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_STATUS_RGSTATUS,$http_content);
+						push(@driver_status,"DRIVER_STATUS_RGSTATUS=$buffer");
+
+						$buffer = getValuesFromHTMLTable(DRIVER_STATUS_OPERATING_MODE,$http_content);
+						if ($buffer eq NO_DATA) {
+							$buffer = privateDriverGetComcastOperatingMode(forceNumeric(getQuotedValuesFromHTML(DRIVER_STATUS_RGSTATUS,$http_content)));
+						}
+						push(@driver_status,"DRIVER_STATUS_OPERATING_MODE=$buffer");
+	
+						$buffer = getValuesFromHTMLTable(DRIVER_STATUS_VENDOR,$http_content);
+						push(@driver_status,"DRIVER_STATUS_VENDOR=$buffer");
+
+						$buffer = getValuesFromHTMLTable(DRIVER_STATUS_HARDWARE_VERSION,$http_content);
+						push(@driver_status,"DRIVER_STATUS_HARDWARE_VERSION=$buffer");
+
+						$buffer = getValuesFromHTMLTable(DRIVER_STATUS_SERIAL_NUMBER,$http_content);
+						push(@driver_status,"DRIVER_STATUS_SERIAL_NUMBER=$buffer");
+					
+						$buffer = getValuesFromHTMLTable(DRIVER_STATUS_UPTIME,$http_content);
+						push(@driver_status,"DRIVER_STATUS_UPTIME=$buffer");
+
+						$retcode = RESPONSE_OK;
+						$error = NO_ERROR;
+					} else {
+						$flag_continue = 0;
+						writelog(STRING_ERROR_PREFIX . STRING_ERROR_ABORTED,TRACE);
+					}
+				} else {
+					$flag_continue = 0;
+					writelog(STRING_ERROR_PREFIX . STRING_ERROR_ABORTED,TRACE);
+				}
+			}
+
+			#	DEVICE INFO
+
+			if ($flag_continue) {
+				# Get Page for Info
+
+				$url = "$device_protocol://$device_address/$device_info_page";
+
+				writelog(STRING_ATTEMPTING_TO_GET_INFO_PAGE,TRACE);
+
+				$browser->get($url);
+
+				if ($browser->success) {
+
+					# Get Data
+					# INFO
+
+					$http_title = $browser->title();
+					$http_mime = $browser->content_type();
+					$http_content = $browser->content;
+					$http_status = $browser->status();
+					$http_message = $browser->response()->status_line;
+					$current_uri = $browser->uri();
+
+					$http_title = NO_DATA unless defined $http_title;
+
+					writelog(STRING_BROWSE_SUCCESS,TRACE);
+
+					writelog(STRING_CURRENT_URL . ": $current_uri",TRACE);
+					writelog(STRING_TITLE . ": $http_title",TRACE);
+					writelog(STRING_MIME . ": $http_mime",TRACE);
+
+					if ($opt_driver_dump_http) {
+						$pathname = "$dump_path/$dump_file_info" . $dump_file_http_suffix . "." . $dump_file_extension;
+
+						writelog("INFO: " . STRING_DUMPING_RAW . " $pathname",TRACE);
+
+						if (rawToFile($http_content,$pathname)) {
+								writelog(STRING_DATA_DUMP_SUCCESS,TRACE);
+							} else {
+								writelog(STRING_DATA_DUMP_FAILED,TRACE);
+						}
+					}
+
+					$flag_continue = 1;
+
+					if ($flag_continue) {
+						writelog(STRING_EXTRACTING_DATA . " INFO",TRACE);
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_FREQUENCY,$http_content);
+						$buffer = reformatData($buffer,$device_data_separator);
+						push(@driver_info,"DRIVER_INFO_DOWNSTREAM_FREQUENCY=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_MODULATION,$http_content);
+						$buffer = removeSubstring($buffer,DRIVER_MEASURE_MODULATION);
+						$buffer = reformatData($buffer,$device_data_separator);
+						push(@driver_info,"DRIVER_INFO_DOWNSTREAM_MODULATION=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_POWER,$http_content);
+						$buffer = reformatData($buffer,$device_data_separator);
+						push(@driver_info,"DRIVER_INFO_DOWNSTREAM_POWER=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_LOCK,$http_content);
+						$buffer = reformatData($buffer,$device_data_separator);
+						push(@driver_info,"DRIVER_INFO_DOWNSTREAM_LOCK=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_RATE,$http_content);
+						$buffer = reformatData($buffer,$device_data_separator);
+						push(@driver_info,"DRIVER_INFO_DOWNSTREAM_RATE=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_SNR,$http_content);
+						$buffer = reformatData($buffer,$device_data_separator);
+						push(@driver_info,"DRIVER_INFO_DOWNSTREAM_SNR=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_DOWNSTREAM_CHANNEL,$http_content);
+						$buffer = reformatData($buffer,$device_data_separator);
+						push(@driver_info,"DRIVER_INFO_DOWNSTREAM_CHANNEL=$buffer");
+
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_FREQUENCY,$http_content);
+						push(@driver_info,"DRIVER_INFO_UPSTREAM_FREQUENCY=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_MODULATION,$http_content);
+						$buffer = removeSubstring($buffer,DRIVER_MEASURE_MODULATION);
+						$buffer = reformatData($buffer,$device_data_separator);
+						push(@driver_info,"DRIVER_INFO_UPSTREAM_MODULATION=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_POWER,$http_content);
+						$buffer = reformatData($buffer,$device_data_separator);
+						push(@driver_info,"DRIVER_INFO_UPSTREAM_POWER=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_LOCK,$http_content);
+						$buffer = reformatData($buffer,$device_data_separator);
+						push(@driver_info,"DRIVER_INFO_UPSTREAM_LOCK=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_RATE,$http_content);
+						$buffer = reformatData($buffer,$device_data_separator);
+						push(@driver_info,"DRIVER_INFO_UPSTREAM_RATE=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_SNR,$http_content);
+						$buffer = reformatData($buffer,$device_data_separator);
+						push(@driver_info,"DRIVER_INFO_UPSTREAM_SNR=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_INFO_UPSTREAM_CHANNEL,$http_content);
+						$buffer = reformatData($buffer,$device_data_separator);
+						push(@driver_info,"DRIVER_INFO_UPSTREAM_CHANNEL=$buffer");
+
+						$buffer = getValuesFromHTML(DRIVER_INFO_WAN_STATUS,$http_content);
+						$buffer = forceNumeric($buffer);
+						push(@driver_info,"DRIVER_INFO_WAN_STATUS=$buffer");
+
+						$buffer = getValuesFromHTML(DRIVER_INFO_TOD_SUCCESS,$http_content,,1);
+						$buffer = forceNumeric($buffer);
+						push(@driver_info,"DRIVER_INFO_TOD_SUCCESS=$buffer");
+
+						$retcode = RESPONSE_OK;
+						$error = NO_ERROR;
+
+					} else {
+						$flag_continue = 0;
+						writelog(STRING_ERROR_PREFIX . STRING_ERROR_ABORTED,TRACE);
+					}
+				} else {
+					$flag_continue = 0;
+					writelog(STRING_ERROR_PREFIX . STRING_ERROR_ABORTED,TRACE);
+				}
+			}
+
+			#	NETWORK STATUS
+
+			if ($flag_continue) {
+		
+				$url = "$device_protocol://$device_address/$device_network_page";
+
+				writelog(STRING_ATTEMPTING_TO_GET_NETWORK_PAGE,TRACE);
+
+				$browser->get($url);
+
+				if ($browser->success) {
+
+					# Get Data
+					# NETWORK
+
+					$http_title = $browser->title();
+					$http_mime = $browser->content_type();
+					$http_content = $browser->content;
+					$http_status = $browser->status();
+					$http_message = $browser->response()->status_line;
+					$current_uri = $browser->uri();
+
+					$http_title = NO_DATA unless defined $http_title;
+
+					writelog(STRING_BROWSE_SUCCESS,TRACE);
+
+					writelog(STRING_CURRENT_URL . ": $current_uri",TRACE);
+					writelog(STRING_TITLE . ": $http_title",TRACE);
+					writelog(STRING_MIME . ": $http_mime",TRACE);
+
+					if ($opt_driver_dump_http) {
+						$pathname = "$dump_path/$dump_file_network" . $dump_file_http_suffix . "." . $dump_file_extension;
+
+						writelog("NETWORK" . STRING_DUMPING_RAW . " $pathname",TRACE);
+
+						if (rawToFile($http_content,$pathname)) {
+								writelog(STRING_DATA_DUMP_SUCCESS,TRACE);
+							} else {
+								writelog(STRING_DATA_DUMP_FAILED,TRACE);
+						}
+					}
+
+					$flag_continue = 1;
+
+					if ($flag_continue) {
+						writelog("Extracting Data: NETWORK",TRACE);
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PUBLIC_LAN_V4,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_PUBLIC_LAN_V4=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PUBLIC_WAN_V4,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_PUBLIC_WAN_V4=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PRIVATE_LAN_V4,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_PRIVATE_LAN_V4=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PRIVATE_MAC,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_PRIVATE_MAC=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_DHCP_SERVER_CONFIG_V4,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_DHCP_SERVER_CONFIG_V4=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PUBLIC_WAN_DHCP_V4,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_PUBLIC_WAN_DHCP_V4=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PUBLIC_WAN_DHCP_SUBNET_V4,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_PUBLIC_WAN_DHCP_SUBNET_V4=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PUBLIC_WAN_DHCP_GATEWAY_V4,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_PUBLIC_WAN_DHCP_GATEWAY_V4=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_INTERNET_INFO_V4,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_INTERNET_INFO_V4=$buffer");
+
+						$buffer = getValuesFromHTML(DRIVER_NETWORK_WAN_STATUS,$http_content);
+						$connection_status = int($buffer);
+						push(@driver_network,"DRIVER_NETWORK_WAN_STATUS=$buffer");
+
+						$buffer = getValuesFromHTMLTable(DRIVER_NETWORK_PUBLIC_WAN_DHCP_LEASE,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_PUBLIC_WAN_DHCP_LEASE=$buffer");
+
+						$buffer = getValuesFromHTMLTable(DRIVER_NETWORK_STATIC_IP_BLOCK,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_STATIC_IP_BLOCK=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PUBLIC_WAN_V6,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_PUBLIC_WAN_V6=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_DHCP_SERVER_CONFIG_V6,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_DHCP_SERVER_CONFIG_V6=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_DHCP_DNS_PRIMARY_V6,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_DHCP_DNS_PRIMARY_V6=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_DHCP_DNS_SECONDARY_V6,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_DHCP_DNS_SECONDARY_V6=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_PRIVATE_LAN_V6,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_PRIVATE_LAN_V6=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_DNS_PRIMARY_V6,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_DNS_PRIMARY_V6=$buffer");
+
+						$buffer = getQuotedValuesFromHTML(DRIVER_NETWORK_DNS_SECONDARY_V6,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_DNS_SECONDARY_V6=$buffer");
+
+						$buffer = getValuesFromHTMLTable(DRIVER_NETWORK_PRIVATE_LAN_GATEWAY_V6,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_PRIVATE_LAN_GATEWAY_V6=$buffer");
+
+						$buffer = getValuesFromHTMLTable(DRIVER_NETWORK_PREFIX_DELEGATIONS_V6,$http_content);
+						push(@driver_network,"DRIVER_NETWORK_PREFIX_DELEGATIONS_V6=$buffer");
+					}
+
+					$retcode = RESPONSE_OK;
+					$error = NO_ERROR;
+				} else {
+					$flag_continue = 0;
+					writelog(STRING_ERROR_PREFIX . STRING_ERROR_ABORTED,TRACE);
+				}
+			} else {
+				$flag_continue = 0;
+				writelog(STRING_ERROR_PREFIX . STRING_ERROR_ABORTED,TRACE);
+			}
+
+			#	Set Flag (to do : should be smarter)
+
+
+			if ($flag_continue) {
+				$flag_data_gathered = 1;
+				$data_timestamp = time;
+			}
+
+			#	LOGOUT
+
+			if ($flag_continue) {
+				if ($opt_driver_logout) {
+					if ($device_logout_page) {
+						# Logout if Requested
+
+						$url = "$device_protocol://$device_address/$device_logout_page";
+	
+						writelog(STRING_ATTEMPTING_TO_LOGOUT,TRACE);
+	
+						$browser->get($url);
+
+						if ($browser->success) {
+							# Logout
+
+							$http_title = $browser->title();
+							$http_mime = $browser->content_type();
+							$http_content = $browser->content;
+							$http_status = $browser->status();
+							$http_message = $browser->response()->status_line;
+							$current_uri = $browser->uri();
+
+							$http_title = NO_DATA unless defined $http_title;
+	
+							writelog(STRING_BROWSE_SUCCESS,TRACE);
+
+							writelog(STRING_CURRENT_URL . ": $current_uri",TRACE);
+							writelog(STRING_TITLE . ": $http_title",TRACE);
+							writelog(STRING_MIME . ": $http_mime",TRACE);
+
+							$flag_continue = 0;
+							$retcode = RESPONSE_OK;
+							$error = NO_ERROR;
+						} else {
+							$flag_continue = 0;
+							writelog(STRING_ERROR_PREFIX . STRING_ERROR_LOGGING_OUT,TRACE);
+						}
+					} else {
+						$flag_continue = 0;
+						writelog(STRING_ERROR_PREFIX . STRING_ERROR_NO_LOGOUT_PAGE,TRACE);
+					}
+				} else {
+					writelog(STRING_WARNING_LOGOUT_NOT_REQUIRED,TRACE);
+				}
+			} else {
+				$flag_continue = 0;
+				writelog(STRING_ERROR_PREFIX . STRING_ERROR_ABORTED,TRACE);
+			}
+		} else {
+			writelog(STRING_ERROR_PREFIX . STRING_ERROR_NO_START_PAGE,TRACE);
+		}
+	} else {
+		writelog(STRING_ERROR_PREFIX . STRING_ERROR_ABORTED,TRACE);
+	}
+
+	return ($retcode,$error);
+}
 
