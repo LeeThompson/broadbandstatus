@@ -3,7 +3,7 @@
 #	LIBRARY
 #		Alerts
 #
-#	Driver Author: Lee Thompson <thompsonl@logh.net>
+#	Author: Lee Thompson <thompsonl@logh.net>
 #
 #=============================================================================
 # to do:
@@ -24,12 +24,28 @@ use strict;
 use warnings;
 
 use constant{
-	LIBRARY_NAME => "alerts",
-	LIBRARY_DESCRIPTION => "alerting",
-	LIBRARY_VERISON => "YYYYMMDDHHMM",
+	ALERTS_LIBRARY_NAME => "alerts",
+	ALERTS_LIBRARY_DESCRIPTION => "alerting",
+	ALERTS_LIBRARY_VERSION => "YYYYMMDDHHMM",
 };
 
 
 1;
+
+
+#-----------------------------------------------------------
+# External Methods
+#-----------------------------------------------------------
+sub alertsGetName{
+	return ALERTS_LIBRARY_NAME;
+}
+
+sub alertsGetDescription{
+	return ALERTS_LIBRARY_DESCRIPTION;
+}
+
+sub alertsGetVersion{
+	return ALERTS_LIBRARY_VERSION;
+}
 
 
